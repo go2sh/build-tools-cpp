@@ -4,25 +4,25 @@ Profiles = require './profiles/profiles'
 
 {CompositeDisposable, BufferedProcess} = require 'atom'
 
-settingsviewuri= 'atom://build-tools-settings'
-SettingsView= null
-settingsview= null
+settingsviewuri = 'atom://build-tools-settings'
+SettingsView = null
+settingsview = null
 
-ConsoleView= null
-consoleview= null
+Display = null
+display = null
 
-SelectionView= null
-selectionview= null
+SelectionView = null
+selectionview = null
 
-createConsoleView= ->
-  ConsoleView ?= require './console'
-  consoleview ?= new ConsoleView()
+createDisplay = ->
+  Display ?= require './display'
+  display = new Display
 
-createSelectionView= ->
+createSelectionView = ->
   SelectionView ?= require './selection-view.coffee'
   selectionview ?= new SelectionView
 
-createSettingsView= (state) ->
+createSettingsView = (state) ->
   SettingsView ?= require './settings-view'
   settingsview = new SettingsView(state)
   settingsview
@@ -43,7 +43,7 @@ module.exports =
 
   activate: (state) ->
     @createProjectInstance()
-    createConsoleView()
+    createDisplay()
     atom.workspace.addOpener (uritoopen) =>
       if uritoopen is settingsviewuri
         createSettingsView({uri: uritoopen, @projects, profiles: Profiles})
@@ -66,9 +66,9 @@ module.exports =
     @process?.kill()
     @process = null
     @subscriptions.dispose()
-    consoleview?.destroy()
-    consoleview = null
-    ConsoleView = null
+    display.destroy()
+    display = null
+    Display = null
     selectionview?.destroy()
     selectionview = null
     SelectionView = null
@@ -80,7 +80,7 @@ module.exports =
     @projects = null
 
   show: ->
-    consoleview?.showBox()
+    display.showConsole()
 
   kill: ->
     @process?.kill()
@@ -88,7 +88,7 @@ module.exports =
 
   cancel: ->
     @kill()
-    consoleview?.cancel()
+    display.hideConsole()
 
   selection: ->
     if (path=atom.workspace.getActiveTextEditor()?.getPath())?
@@ -109,12 +109,8 @@ module.exports =
 
   spawn: (res, clear = true) ->
     {cmd,args,env,cwd} = res.parseCommand()
-    consoleview?.createOutput res
-    consoleview?.showBox()
-    consoleview?.setHeader("#{res.name} of #{res.project}")
-    consoleview?.clear() if clear
+    display.spawn res, clear
     ll.messages = [] if clear
-    consoleview?.unlock()
     @kill()
     @process = new BufferedProcess(
       command: cmd
@@ -122,21 +118,19 @@ module.exports =
       options:
         cwd: cwd,
         env: env
-      stdout: (data) ->
-        consoleview?.stdout?.in data
-      stderr: (data) ->
-        consoleview?.stderr?.in data
+      stdout: display.stdout
+      stderr: display.stderr
       exit: (exitcode) =>
         if (@command_list.length is 0) or exitcode isnt 0
-          consoleview?.finishConsole(exitcode)
+          display.finish(exitcode)
         if exitcode is 0
-          consoleview?.setHeader(
+          display.setHeader(
             "#{res.name} of #{res.project}: finished with exitcode #{exitcode}"
           )
           if (@command_list.length isnt 0)
             @spawn @command_list.splice(0,1)[0], false
         else
-          consoleview?.setHeader(
+          display.setHeader(
             "#{res.name} of #{res.project}:" +
             "<span class='error'>finished with exitcode #{exitcode}</span>"
           )
@@ -144,9 +138,9 @@ module.exports =
         @process = null
       )
     @process.onWillThrowError ({error, handle}) =>
-      consoleview?.hideOutput()
-      consoleview?.setHeader("#{res.name} of #{res.project}: received #{error}")
-      consoleview?.lock()
+      display.hide()
+      display.setHeader("#{res.name} of #{res.project}: received #{error}")
+      display.lock()
       @command_list = []
       @process = null
       handle()

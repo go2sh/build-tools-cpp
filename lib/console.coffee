@@ -48,14 +48,14 @@ module.exports =
     cancel: ->
       @hideBox()
 
-    startResize: (e) => # pass in the mousedown event
+    startResize: (e) =>
       $(document).on 'mousemove', @resize
       $(document).on 'mouseup', @endResize
-      @padding = $(document.body).height() - (e.clientY + @find('.output').height()) # calculate padding offset
+      @padding = $(document.body).height() - (e.clientY + @find('.output').height())
 
     resize: ({pageY, which}) =>
       return @endResize() unless which is 1
-      @find('.output').height($(document.body).height() - pageY - @padding) #includes padding offset
+      @find('.output').height($(document.body).height() - pageY - @padding)
 
     endResize: =>
       $(document).off 'mousemove', @resize
